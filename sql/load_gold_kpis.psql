@@ -1,0 +1,16 @@
+BEGIN;
+TRUNCATE TABLE fact_kpi_prix_m2_quartier_annuel CASCADE;
+\copy fact_kpi_prix_m2_quartier_annuel FROM 'C:/Users/rayan/Desktop/efrei/projet-data-dev/data/gold/kpi_prix_m2_quartier_annuel.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
+TRUNCATE TABLE fact_kpi_comparaison_achat_location_arrondissement CASCADE;
+\copy fact_kpi_comparaison_achat_location_arrondissement FROM 'C:/Users/rayan/Desktop/efrei/projet-data-dev/data/gold/kpi_comparaison_achat_location_arrondissement.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
+TRUNCATE TABLE fact_kpi_comparaison_achat_location_quartier CASCADE;
+\copy fact_kpi_comparaison_achat_location_quartier FROM 'C:/Users/rayan/Desktop/efrei/projet-data-dev/data/gold/kpi_comparaison_achat_location_quartier_estime.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
+TRUNCATE TABLE fact_kpi_loyers_quartier CASCADE;
+\copy fact_kpi_loyers_quartier FROM 'C:/Users/rayan/Desktop/efrei/projet-data-dev/data/gold/kpi_loyers_quartier.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
+TRUNCATE TABLE fact_kpi_repartition_logements_sociaux CASCADE;
+\copy fact_kpi_repartition_logements_sociaux FROM 'C:/Users/rayan/Desktop/efrei/projet-data-dev/data/gold/kpi_repartition_logements_sociaux.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
+TRUNCATE TABLE fact_kpi_confort_quartier CASCADE;
+\copy fact_kpi_confort_quartier FROM 'C:/Users/rayan/Desktop/efrei/projet-data-dev/data/gold/gold_kpi_confort_urbain.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
+TRUNCATE TABLE fact_kpi_surete_quartier CASCADE;
+\copy fact_kpi_surete_quartier FROM 'C:/Users/rayan/Desktop/efrei/projet-data-dev/data/gold/kpi_score_surete_quartier_estime_depuis_iris.csv' WITH (FORMAT csv, HEADER true, DELIMITER ',', ENCODING 'UTF8');
+COMMIT;
