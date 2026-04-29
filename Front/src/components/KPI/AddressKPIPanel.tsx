@@ -1,11 +1,11 @@
 import { X, MapPin } from 'lucide-react'
-import type { OverpassAddress } from '@/services/overpassApi'
-import type { QuartierKPIResponse, KPICategory } from '@/services/apiService'
+import { X, MapPin } from 'lucide-react'
+import type { Address, QuartierKPIResponse, KPICategory } from '@/services/apiService'
 import KPIDisplay from './KPIDisplay'
 import type { SelectedQuartier } from '@/App'
 
 interface AddressKPIPanelProps {
-  address: OverpassAddress
+  address: Address
   quartierName: string
   quartier: SelectedQuartier
   kpiData: QuartierKPIResponse | null

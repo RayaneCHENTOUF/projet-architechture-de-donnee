@@ -1,6 +1,7 @@
 import { X, Search, MapPin, Building2, Trophy, Filter, Navigation, Shield, Banknote, Home, Building, Scale, Leaf } from 'lucide-react'
 import { useMemo, useState, useEffect } from 'react'
 import { KPI_CATEGORIES, KPICategory, Address, fetchQuartierAddresses } from '../../services/apiService'
+import { RUES_PAR_ARRONDISSEMENT } from '../../data/mock-addresses'
 import type { SelectedQuartier } from '../../App'
 import parisData from '../../data/paris-quartiers.json'
 
@@ -66,9 +67,54 @@ export default function Sidebar({
     return list.sort((a, b) => a.localeCompare(b, 'fr'))
   }, [])
 
-  const filteredQuartiers = allQuartiers.filter(q =>
-    q.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // ─── Search Results (Quartiers + Streets) ──────────────────────────
+  const [searchResults, setSearchResults] = useState<{ type: 'Quartier' | 'Rue'; name: string; full?: string; arr?: number }[]>([])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!searchTerm.trim()) {
+        const geoData = parisData as unknown as { features: { properties: { l_qu: string; c_ar: number } }[] }
+        setSearchResults(geoData.features.map(f => ({
+          type: 'Quartier',
+          name: f.properties.l_qu,
+          arr: f.properties.c_ar
+        })).sort((a, b) => a.name.localeCompare(b.name, 'fr')))
+        return
+      }
+
+      const q = searchTerm.toLowerCase()
+      const quartierMatches = allQuartiers
+        .filter(name => name.toLowerCase().includes(q))
+        .map(name => {
+          const feature = (parisData as any).features.find((f: any) => f.properties.l_qu === name)
+          return { 
+            type: 'Quartier' as const, 
+            name,
+            arr: feature?.properties.c_ar
+          }
+        })
+
+      // Search in streets
+      const streetResults: { type: 'Rue'; name: string; full: string; arr: number }[] = []
+      for (const [arr, rues] of Object.entries(RUES_PAR_ARRONDISSEMENT)) {
+        const arrNum = parseInt(arr)
+        rues.forEach(rue => {
+          if (rue.toLowerCase().includes(q)) {
+            streetResults.push({
+              type: 'Rue',
+              name: rue,
+              full: `${rue}, 750${String(arrNum).padStart(2, '0')} Paris`,
+              arr: arrNum
+            })
+          }
+        })
+      }
+
+      setSearchResults([...quartierMatches, ...streetResults.slice(0, 20)])
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [searchTerm, allQuartiers])
 
   // ─── Arrondissements ──────────────────────────────────────────────
   const arrondissements = Array.from({ length: 20 }, (_, i) => i + 1)
@@ -242,16 +288,32 @@ export default function Sidebar({
                     onChange={e => setSearchTerm(e.target.value)}
                   />
                 </div>
-                <div className="grid grid-cols-1 gap-1">
-                  {filteredQuartiers.map(q => (
-                    <button
-                      key={q}
-                      onClick={() => onQuartierSelect(q)}
-                      className="w-full text-left px-4 py-3 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white text-sm font-semibold transition-all"
-                    >
-                      {q}
-                    </button>
-                  ))}
+                <div className="space-y-1">
+                  {searchResults.length > 0 ? (
+                    searchResults.map((result, idx) => (
+                      <button
+                        key={`${result.type}-${result.name}-${idx}`}
+                        onClick={() => onQuartierSelect(result.name)}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-white/5 transition-all text-left group"
+                      >
+                        <div className={`p-2 rounded-lg ${result.type === 'Quartier' ? 'bg-blue-500/10 text-blue-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                          {result.type === 'Quartier' ? <Building2 className="w-4 h-4" /> : <MapPin className="w-4 h-4" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-semibold text-slate-200 group-hover:text-white truncate">
+                            {result.name}
+                          </div>
+                          {result.type === 'Rue' && (
+                            <div className="text-[10px] text-slate-500 truncate">{result.full}</div>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center">
+                      <div className="text-slate-500 text-sm">Aucun résultat pour "{searchTerm}"</div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (

@@ -99,47 +99,66 @@ function App() {
 
   // ─── Selection Handlers ────────────────────────────────────────────
   const handleQuartierSelect = (name: string) => {
-    // Check if it's an address (from Nominatim search) or a quartier name
-    if (name.includes(',') || /^\d+\s/.test(name)) {
-      // It's likely an address search result
-      searchAddress(name).then(results => {
-        if (results.length > 0) {
-          const addr = results[0]
-          setSelectedAddress(addr)
-          lookupQuartier(addr.lat, addr.lon).then(q => {
+    // Local search through our data
+    searchAddress(name).then(results => {
+      if (results.length > 0) {
+        const result = results[0]
+        
+        if (result.type === 'Quartier') {
+          // Direct quartier selection
+          const feature = typedParisData.features.find(f => f.properties.l_qu === result.rue)
+          if (feature) {
+            const props = feature.properties
+            setSelectedQuartier({
+              code_insee: props.c_quinsee,
+              nom_quartier: props.l_qu,
+              arrondissement: props.c_ar,
+              surface: props.surface,
+              perimetre: props.perimetre,
+              lat: props.geom_x_y?.lat || 0,
+              lon: props.geom_x_y?.lon || 0,
+            })
+            setSelectedArrondissement(props.c_ar)
+            setViewMode('quartier')
+            setSelectedAddress(null)
+          }
+        } else {
+          // Street selection
+          setSelectedAddress(result)
+          lookupQuartier(result.lat, result.lon).then(q => {
             setSelectedQuartier({
               code_insee: q.code_insee,
               nom_quartier: q.nom_quartier,
               arrondissement: q.arrondissement,
               surface: q.surface,
               perimetre: q.perimetre,
-              lat: addr.lat,
-              lon: addr.lon
+              lat: result.lat,
+              lon: result.lon
             })
             setSelectedArrondissement(q.arrondissement)
             setViewMode('quartier')
           }).catch(console.error)
         }
-      })
-    } else {
-      // It's a quartier name
-      const feature = typedParisData.features.find(f => f.properties.l_qu === name)
-      if (feature) {
-        const props = feature.properties
-        setSelectedQuartier({
-          code_insee: props.c_quinsee,
-          nom_quartier: props.l_qu,
-          arrondissement: props.c_ar,
-          surface: props.surface,
-          perimetre: props.perimetre,
-          lat: props.geom_x_y?.lat || 0,
-          lon: props.geom_x_y?.lon || 0,
-        })
-        setSelectedArrondissement(props.c_ar)
-        setViewMode('quartier')
-        setSelectedAddress(null)
+      } else {
+        // Fallback for direct clicks or exact matches
+        const feature = typedParisData.features.find(f => f.properties.l_qu === name)
+        if (feature) {
+          const props = feature.properties
+          setSelectedQuartier({
+            code_insee: props.c_quinsee,
+            nom_quartier: props.l_qu,
+            arrondissement: props.c_ar,
+            surface: props.surface,
+            perimetre: props.perimetre,
+            lat: props.geom_x_y?.lat || 0,
+            lon: props.geom_x_y?.lon || 0,
+          })
+          setSelectedArrondissement(props.c_ar)
+          setViewMode('quartier')
+          setSelectedAddress(null)
+        }
       }
-    }
+    })
   }
 
   const handleArrondissementSelect = (arrNum: number) => {

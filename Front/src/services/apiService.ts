@@ -245,52 +245,58 @@ export async function fetchArrondissements(): Promise<Arrondissement[]> {
   })
 }
 
-// ─── Address Search via Nominatim (real geocoding) ───────────────────────────
+// ─── Address Search (Purely Local) ───────────────────────────────────────────
+
+import { generateMockAddresses, RUES_PAR_ARRONDISSEMENT } from '../data/mock-addresses'
 
 export async function searchAddress(query: string): Promise<Address[]> {
-  try {
-    const params = new URLSearchParams({
-      q: query,
-      format: 'json',
-      addressdetails: '1',
-      limit: '8',
-      countrycodes: 'fr',
-      viewbox: '2.22,48.90,2.47,48.81',
-      bounded: '1',
+  await delay(150)
+  const q = query.toLowerCase().trim()
+  if (!q) return []
+
+  const results: Address[] = []
+  const quartiers = await fetchQuartiers()
+
+  // 1. Search in Quartier names
+  const matchingQuartiers = quartiers.filter(quartier => 
+    quartier.nom_quartier.toLowerCase().includes(q)
+  )
+
+  matchingQuartiers.forEach(quartier => {
+    results.push({
+      numero: '',
+      rue: quartier.nom_quartier,
+      code_postal: `750${String(quartier.arrondissement).padStart(2, '0')}`,
+      lat: quartier.lat,
+      lon: quartier.lon,
+      full: `${quartier.nom_quartier}, Paris`,
+      type: 'Quartier'
     })
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/search?${params}`,
-      { headers: { 'Accept-Language': 'fr' } }
-    )
-    if (!response.ok) throw new Error('Nominatim request failed')
+  })
 
-    const results: NominatimResult[] = await response.json()
-    return results
-      .filter(r => r.lat && r.lon)
-      .map(r => ({
-        numero: r.address?.house_number || '',
-        rue: r.address?.road || r.display_name.split(',')[0],
-        code_postal: r.address?.postcode || '',
-        lat: parseFloat(String(r.lat)),
-        lon: parseFloat(String(r.lon)),
-        full: r.display_name,
-      }))
-  } catch (err) {
-    console.error('Nominatim search error:', err)
-    return []
+  // 2. Search in Streets data
+  for (const [arr, rues] of Object.entries(RUES_PAR_ARRONDISSEMENT)) {
+    const arrNum = parseInt(arr)
+    const matchingRues = rues.filter(rue => rue.toLowerCase().includes(q))
+    
+    matchingRues.forEach(rue => {
+      // Find a quartier in this arrondissement to get a base lat/lon
+      const representativeQuartier = quartiers.find(quartier => quartier.arrondissement === arrNum)
+      if (representativeQuartier) {
+        results.push({
+          numero: '1',
+          rue: rue,
+          code_postal: `750${String(arrNum).padStart(2, '0')}`,
+          lat: representativeQuartier.lat,
+          lon: representativeQuartier.lon,
+          full: `${rue}, 750${String(arrNum).padStart(2, '0')} Paris`,
+          type: 'Rue'
+        })
+      }
+    })
   }
-}
 
-interface NominatimResult {
-  lat: string | number
-  lon: string | number
-  display_name: string
-  address?: {
-    house_number?: string
-    road?: string
-    postcode?: string
-    city?: string
-  }
+  return results.slice(0, 10)
 }
 
 // ─── Point-in-Polygon quartier lookup (Turf.js) ─────────────────────────────
