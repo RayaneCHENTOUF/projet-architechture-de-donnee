@@ -26,10 +26,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=int(os.getenv("MYSQL_PORT", "3306")))
     parser.add_argument("--database", default=os.getenv("MYSQL_DATABASE", "urban_data"))
     parser.add_argument("--user", default=os.getenv("MYSQL_USER", "root"))
-    parser.add_argument("--password", default=os.getenv("MYSQL_PASSWORD", ""))
+    parser.add_argument("--password", default=os.getenv("MYSQL_PASSWORD", "nawfel"))
     parser.add_argument(
         "--sql-dir",
-        default="sql",
+
+        default="../../../sql",
         help="Directory where SQL files are located.",
     )
     parser.add_argument(
@@ -226,4 +227,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    main() 

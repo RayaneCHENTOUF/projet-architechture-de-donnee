@@ -1,0 +1,76 @@
+=========================================================
+RAPPORT COMPLET DES KPI - PARIS URBAN EXPLORER
+=========================================================
+
+1. KPI SÛRETÉ (Sécurité)
+---------------------------------------------------------
+- Sources : 
+  * Open Data Paris (Emplacements des caméras de vidéosurveillance).
+  * Ministère de l'Intérieur / Préfecture de Police (Localisation des commissariats, statistiques de délinquance par IRIS).
+- Formule Mathématique (Score sur 100) : 
+  Le score est un indice composite issu de la combinaison de facteurs géospatiaux et statistiques :
+  Score_Sureté = (Poids_1 * Densité_Caméras) + (Poids_2 * (1 / Distance_Moyenne_Commissariat)) - (Poids_3 * Taux_Risque_IRIS)
+  Ensuite, une normalisation Min-Max est appliquée en amont pour ramener la note entre 0 et 100.
+- Utilisation : Permet d'évaluer le niveau de sécurité ressenti et mesuré d'un quartier pour les habitants ou de futurs acheteurs.
+
+2. KPI CONFORT URBAIN
+---------------------------------------------------------
+- Sources : 
+  * RATP / Île-de-France Mobilités (Gares et stations de métro).
+  * Pompiers de Paris / BSPP (Interventions et risques d'incidents).
+- Formule Mathématique (Score sur 100) : 
+  Score_Confort = (Accessibilité_Transports) - (Risque_Incidents) + (Qualité_Environnementale)
+  Accessibilité = Somme des gares dans un rayon donné (ex: 800m) ramenée à la surface du quartier.
+  Risque_Incidents = Nombre d'interventions rapporté à la population/surface.
+  La note finale est lissée sur une échelle absolue de 0 à 100.
+- Utilisation : Identifie les quartiers les plus agréables à vivre, bien desservis, tout en mesurant les nuisances ou risques liés aux incidents urbains.
+
+3. KPI PRIX AU MÈTRE CARRÉ (Achat)
+---------------------------------------------------------
+- Sources : 
+  * Base DVF (Demandes de Valeurs Foncières) publiée par la DGFiP (Notaires de France).
+- Formule Mathématique : 
+  Prix_m2_Médian = Médiane( Prix_Vente / Surface_Carrez ) pour l'année N.
+  Lors de la constitution de l'Indice Global dans l'application, ce prix subit une normalisation inversée (Min-Max Inverse) pour que les prix bas obtiennent les meilleures notes :
+  Score_Normalisé = 100 - (((Valeur - Min_Paris) / (Max_Paris - Min_Paris)) * 100)
+- Utilisation : Évaluer l'accessibilité financière à l'achat d'un quartier. Un score normalisé élevé signifie un quartier peu cher (abordable).
+
+4. KPI ENCADREMENT DES LOYERS (Location)
+---------------------------------------------------------
+- Sources : 
+  * Observatoire des Loyers de l'Agglomération Parisienne (OLAP) / DRIHL.
+- Formule Mathématique : 
+  Loyer_Médian = Médiane des loyers de référence (exprimée en €/m²/mois) par quartier, pondérée par l'époque de construction et le type de location.
+  Normalisation pour l'Indice Global (Min-Max Inverse) :
+  Score_Normalisé = 100 - (((Loyer - Min_Paris) / (Max_Paris - Min_Paris)) * 100)
+- Utilisation : Destiné aux locataires pour évaluer le budget logement et s'assurer du respect de l'encadrement des loyers.
+
+5. KPI LOGEMENTS SOCIAUX
+---------------------------------------------------------
+- Sources : 
+  * Open Data Paris (Inventaire des logements sociaux financés : PLUS, PLAI, PLS).
+- Formule Mathématique : 
+  Il s'agit du décompte absolu ou de la part des logements financés.
+  Dans l'Indice Global, la formule de normalisation standard (Min-Max) est utilisée :
+  Score_Normalisé = (Nb_Logements / Max_Logements_Paris) * 100
+- Utilisation : Évalue la mixité sociale et l'offre d'habitat public dans un quartier. Un score élevé favorise les politiques d'accessibilité au logement.
+
+6. KPI COMPARAISON ACHAT / LOCATION
+---------------------------------------------------------
+- Sources : 
+  * DVF (Achat) croisé avec l'Encadrement des Loyers (Location).
+- Formule Mathématique : 
+  Ratio_Rentabilité = Prix_m2_Médian / (Loyer_m2_Médian * 12)
+  Ce ratio exprime le nombre d'années de location nécessaires pour équivaloir au prix d'achat. 
+  Dans le cadre de l'application, ce ratio est normalisé entre 15 et 30 ans :
+  Score_Normalisé = ((Ratio - 15) / (30 - 15)) * 100
+- Utilisation : Indicateur crucial pour les investisseurs immobiliers et les particuliers hésitant entre l'achat et la location. Un ratio bas signifie qu'il est plus intéressant d'acheter, un ratio élevé favorise la location.
+
+=========================================================
+L'INDICE GLOBAL (Score Composite de l'Application)
+=========================================================
+Pour obtenir une note finale unique sur 100 qui sert au classement ("Palmarès Local" par arrondissement ou score global d'un quartier), l'application calcule la moyenne arithmétique de l'ensemble des "Scores Normalisés" des KPI activés par l'utilisateur.
+
+Indice_Global = Somme(Scores_Normalisés_Actifs) / Nombre_de_Filtres_Actifs
+
+Cette agrégation dynamique permet de construire des profils sur mesure (Ex: "Investisseur" = Loyers + Achat/Location ; "Famille" = Sûreté + Confort + Prix m2).

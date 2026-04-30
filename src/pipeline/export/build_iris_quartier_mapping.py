@@ -2,8 +2,9 @@
 """Build IRIS -> quartier mapping from existing cleaned geography data.
 
 Rule used:
-- Paris IRIS code (9 digits) embeds quartier code in its first 7 digits.
-- code_insee_quartier = left(CODE_IRIS, 7)
+- Paris INSEE_COM codes follow the pattern 751XX where XX = arrondissement number.
+- Arrondissement is extracted from INSEE_COM: arr = INSEE_COM[-2:] (last 2 digits).
+- Each IRIS is linked to ALL quartiers of its arrondissement (1-to-many).
 
 Outputs:
 - data/exports/relational/iris_to_quartier.csv
@@ -31,68 +32,110 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--output-csv",
-        default="data/exports/relational/iris_to_quartier.csv",
+        default="../../../data/exports/relational/iris_to_quartier.csv",
         help="Output mapping CSV path",
     )
     parser.add_argument(
-        "--output-sql",
-        default="sql/create_iris_to_quartier_mysql.sql",
+        "--output-sql", 
+        default="../../../sql/create_iris_to_quartier_mysql.sql",
         help="Output SQL path",
     )
     return parser.parse_args()
 
 
-def load_quartier_codes(quartiers_csv: Path) -> set[str]:
-    codes: set[str] = set()
+def load_quartiers_by_arrondissement(quartiers_csv: Path) -> dict[str, list[dict[str, str]]]:
+    """Load quartiers grouped by arrondissement number (2-digit string like '01', '16')."""
+    arr_map: dict[str, list[dict[str, str]]] = {}
     with quartiers_csv.open("r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            code = (row.get("code_insee_quartier") or "").strip()
-            if code:
-                codes.add(code)
-    return codes
+            arr = (row.get("arrondissement") or "").strip()
+            code_insee = (row.get("code_insee_quartier") or "").strip()
+            nom = (row.get("nom_quartier") or "").strip()
+            if arr and code_insee:
+                arr_map.setdefault(arr, []).append({
+                    "code_insee_quartier": code_insee,
+                    "nom_quartier": nom,
+                })
+    return arr_map
 
 
-def build_mapping_rows(iris_csv: Path, quartier_codes: set[str]) -> list[dict[str, str]]:
+def insee_com_to_arrondissement(insee_com: str) -> str:
+    """Extract 2-digit arrondissement from INSEE_COM.
+
+    Paris INSEE_COM = 751XX where XX = arrondissement (01-20).
+    Examples: 75101 -> '01', 75116 -> '16', 75120 -> '20'.
+    """
+    if len(insee_com) == 5 and insee_com.startswith("751"):
+        return insee_com[-2:]
+    return ""
+
+
+def build_mapping_rows(
+    iris_csv: Path,
+    quartiers_by_arr: dict[str, list[dict[str, str]]],
+) -> list[dict[str, str]]:
+    """Build mapping rows: each IRIS is linked to all quartiers of its arrondissement."""
     rows: list[dict[str, str]] = []
-    missing = 0
+    matched_iris = 0
+    unmatched_iris = 0
 
     with iris_csv.open("r", encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
             code_iris = (row.get("CODE_IRIS") or "").strip()
             insee_com = (row.get("INSEE_COM") or "").strip()
+            nom_iris = (row.get("NOM_IRIS") or "").strip()
 
             if not code_iris:
                 continue
 
-            code_insee_quartier = code_iris[:7]
-            if code_insee_quartier not in quartier_codes:
-                missing += 1
+            arr = insee_com_to_arrondissement(insee_com)
+            quartiers = quartiers_by_arr.get(arr, [])
 
-            rows.append(
-                {
+            if not quartiers:
+                unmatched_iris += 1
+                # Still add the row with arrondissement info only
+                rows.append({
                     "code_iris": code_iris,
-                    "code_insee_quartier": code_insee_quartier,
+                    "code_insee_quartier": "",
+                    "nom_quartier": "",
                     "insee_com": insee_com,
-                }
-            )
+                    "arrondissement": arr,
+                    "nom_iris": nom_iris,
+                })
+                continue
 
-    if missing:
-        print(
-            f"[WARN] {missing} row(s) reference a quartier code absent from quartiers_clean.csv"
-        )
+            matched_iris += 1
+            for q in quartiers:
+                rows.append({
+                    "code_iris": code_iris,
+                    "code_insee_quartier": q["code_insee_quartier"],
+                    "nom_quartier": q["nom_quartier"],
+                    "insee_com": insee_com,
+                    "arrondissement": arr,
+                    "nom_iris": nom_iris,
+                })
+
+    print(f"[INFO] IRIS matched to arrondissement: {matched_iris}")
+    if unmatched_iris:
+        print(f"[WARN] IRIS without matching arrondissement: {unmatched_iris}")
 
     return rows
 
 
 def write_mapping_csv(output_csv: Path, rows: list[dict[str, str]]) -> None:
     output_csv.parent.mkdir(parents=True, exist_ok=True)
+    fieldnames = [
+        "code_iris",
+        "code_insee_quartier",
+        "nom_quartier",
+        "insee_com",
+        "arrondissement",
+        "nom_iris",
+    ]
     with output_csv.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=["code_iris", "code_insee_quartier", "insee_com"],
-        )
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
@@ -100,10 +143,16 @@ def write_mapping_csv(output_csv: Path, rows: list[dict[str, str]]) -> None:
 def build_sql(output_csv: Path) -> str:
     csv_path = output_csv.resolve().as_posix()
     return f"""CREATE TABLE IF NOT EXISTS iris_to_quartier (
-    code_iris VARCHAR(16) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code_iris VARCHAR(16) NOT NULL,
     code_insee_quartier VARCHAR(16) NOT NULL,
+    nom_quartier VARCHAR(100),
     insee_com VARCHAR(16),
-    INDEX idx_iris_to_quartier_quartier (code_insee_quartier)
+    arrondissement VARCHAR(2),
+    nom_iris VARCHAR(100),
+    INDEX idx_iris_code (code_iris),
+    INDEX idx_quartier_code (code_insee_quartier),
+    INDEX idx_arrondissement (arrondissement)
 );
 
 TRUNCATE TABLE iris_to_quartier;
@@ -115,7 +164,7 @@ FIELDS TERMINATED BY ','
 OPTIONALLY ENCLOSED BY '"'
 LINES TERMINATED BY '\\n'
 IGNORE 1 LINES
-(code_iris, code_insee_quartier, insee_com);
+(code_iris, code_insee_quartier, nom_quartier, insee_com, arrondissement, nom_iris);
 """
 
 
@@ -137,8 +186,10 @@ def main() -> None:
     if not quartiers_csv.exists():
         raise FileNotFoundError(f"Missing file: {quartiers_csv}")
 
-    quartier_codes = load_quartier_codes(quartiers_csv)
-    rows = build_mapping_rows(iris_csv, quartier_codes)
+    quartiers_by_arr = load_quartiers_by_arrondissement(quartiers_csv)
+    print(f"[INFO] Loaded {sum(len(v) for v in quartiers_by_arr.values())} quartiers across {len(quartiers_by_arr)} arrondissements")
+
+    rows = build_mapping_rows(iris_csv, quartiers_by_arr)
     write_mapping_csv(output_csv, rows)
 
     sql = build_sql(output_csv)

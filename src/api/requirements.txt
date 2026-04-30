@@ -1,0 +1,7 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pymongo==4.8.0
+mysql-connector-python==9.0.0
+pydantic==2.11.4
+pydantic-settings==2.9.1
+python-dotenv==1.0.0

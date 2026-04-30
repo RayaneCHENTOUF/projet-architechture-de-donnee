@@ -9,6 +9,7 @@ interface KPIDisplayProps {
   kpiData: QuartierKPIResponse | null
   selectedCategories: KPICategory[]
   isLoading: boolean
+  isError: boolean
   onClose: () => void
 }
 
@@ -60,6 +61,7 @@ export default function KPIDisplay({
   kpiData,
   selectedCategories,
   isLoading,
+  isError,
   onClose
 }: KPIDisplayProps) {
 
@@ -173,6 +175,48 @@ export default function KPIDisplay({
     URL.revokeObjectURL(url)
   }
 
+  // Calculate a dynamic composite score based on Paris-wide empirical boundaries
+  const calculateIndiceGlobal = () => {
+    if (!kpiData) return 0
+    let totalScore = 0
+    let count = 0
+    
+    selectedCategories.forEach(cat => {
+      if (cat === 'confort' && kpiData.kpis.confort) {
+        totalScore += kpiData.kpis.confort.score_confort_urbain_100
+        count++
+      } else if (cat === 'surete' && kpiData.kpis.surete) {
+        totalScore += kpiData.kpis.surete.score_surete_quartier_moyen_100
+        count++
+      } else if (cat === 'prix_m2' && kpiData.kpis.prix_m2) {
+        const val = kpiData.kpis.prix_m2.prix_m2_median
+        // Paris boundaries: ~7000€ to ~16000€. Lower is better.
+        let score = 100 - ((val - 7000) / (16000 - 7000) * 100)
+        totalScore += Math.max(0, Math.min(100, score))
+        count++
+      } else if (cat === 'loyers' && kpiData.kpis.loyers) {
+        const val = kpiData.kpis.loyers.loyer_reference_median
+        // Paris boundaries: ~20€ to ~40€. Lower is better.
+        let score = 100 - ((val - 20) / (40 - 20) * 100)
+        totalScore += Math.max(0, Math.min(100, score))
+        count++
+      } else if (cat === 'logements_sociaux' && kpiData.kpis.logements_sociaux) {
+        const val = kpiData.kpis.logements_sociaux.logements_finances_total
+        // Boundaries: 0 to ~3000
+        let score = (val / 3000) * 100
+        totalScore += Math.max(0, Math.min(100, score))
+        count++
+      } else if (cat === 'comparaison' && kpiData.kpis.comparaison) {
+        const val = kpiData.kpis.comparaison.kpi_comparaison_achat_location
+        // Boundaries: ~15 to ~30
+        let score = ((val - 15) / (30 - 15)) * 100
+        totalScore += Math.max(0, Math.min(100, score))
+        count++
+      }
+    })
+    return count > 0 ? totalScore / count : 0
+  }
+
   return (
     <div className="flex-1 flex flex-col bg-slate-900 border border-white/5 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-300">
       {/* Header */}
@@ -203,6 +247,15 @@ export default function KPIDisplay({
             {[1, 2, 3].map(i => (
               <div key={i} className="h-28 bg-white/5 rounded-xl animate-pulse"></div>
             ))}
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mb-3">
+              <Info className="w-8 h-8 text-red-500" />
+            </div>
+            <p className="text-red-400 text-sm font-bold mb-1">API indisponible</p>
+            <p className="text-slate-500 text-xs font-medium">Les données KPI ne sont pas accessibles.
+            Vérifiez que le backend est en cours d'exécution.</p>
           </div>
         ) : kpiData ? (
           <div className="space-y-4 py-6">
@@ -340,8 +393,8 @@ export default function KPIDisplay({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <Info className="w-8 h-8 text-slate-700 mb-3" />
-            <p className="text-slate-500 text-sm font-medium">Aucune donnée sélectionnée</p>
+            <Info className="w-8 h-8 text-slate-600 mb-3" />
+            <p className="text-slate-500 text-sm font-medium">Sélectionnez un quartier</p>
           </div>
         )}
       </div>
@@ -352,7 +405,7 @@ export default function KPIDisplay({
           <div>
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Indice Global</div>
             <div className="text-xl font-bold text-white">
-              {Math.round(kpiData?.kpis?.confort?.score_confort_urbain_100 || 0)}
+              {Math.round(calculateIndiceGlobal())}
               <span className="text-xs text-slate-500 ml-1">/100</span>
             </div>
           </div>

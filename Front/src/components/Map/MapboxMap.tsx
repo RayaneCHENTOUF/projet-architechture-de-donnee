@@ -2,8 +2,8 @@ import { useCallback, useMemo, useState, useEffect, useRef } from 'react'
 import Map, { Source, Layer, MapLayerMouseEvent, Marker, MapRef } from 'react-map-gl'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import parisData from '../../data/paris-quartiers.json'
-import type { Address } from '../../services/apiService'
+import type { Address } from '../../services/apiService.ts'
+import { fetchArrondissementsGeoJSON, fetchQuartiersGeoJSON } from '../../services/apiService.ts'
 
 interface MapboxMapProps {
   selectedArrondissement: string | null
@@ -11,34 +11,52 @@ interface MapboxMapProps {
   selectedAddress: Address | null
   choroplethScores: Record<string, number>
   choroplethLabel: string
+  onArrondissementClick?: (arrNum: number) => void
+  mapLayerMode: 'arrondissement' | 'quartier'
 }
 
-/**
- * Interpolate a score (0–100) to a color on a blue→green→yellow→red gradient.
- */
+type QuartierFeature = {
+  properties?: Record<string, unknown> | null
+  geometry: { type: string }
+}
+
+function getQuartierName(feature: QuartierFeature): string | null {
+  const properties = feature.properties ?? undefined
+  const value = properties?.l_qu ?? properties?.nom_quartier
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+function getQuartierCodeInsee(feature: QuartierFeature): string | null {
+  const properties = feature.properties ?? undefined
+  const value = properties?.c_quinsee ?? properties?.code_insee_quartier
+  if (typeof value === 'string' && value.trim()) return value
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  return null
+}
+
+function hasPolygonGeometry(features: Array<{ geometry: { type: string } }> | null): boolean {
+  return !!features?.some(f => f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon')
+}
+
+function buildSelectedFilter(selectedName: string) {
+  return [
+    'any',
+    ['==', ['get', 'l_qu'], selectedName],
+    ['==', ['get', 'nom_quartier'], selectedName],
+  ] as const
+}
+
 function scoreToColor(score: number): string {
   const s = Math.max(0, Math.min(100, score))
   if (s < 33) {
-    // red to yellow
     const t = s / 33
-    const r = 220
-    const g = Math.round(60 + 140 * t)
-    const b = Math.round(60 * (1 - t))
-    return `rgb(${r},${g},${b})`
+    return `rgb(220,${Math.round(60 + 140 * t)},${Math.round(60 * (1 - t))})`
   } else if (s < 66) {
-    // yellow to green
     const t = (s - 33) / 33
-    const r = Math.round(220 - 150 * t)
-    const g = Math.round(200 + 30 * t)
-    const b = Math.round(40 + 60 * t)
-    return `rgb(${r},${g},${b})`
+    return `rgb(${Math.round(220 - 150 * t)},${Math.round(200 + 30 * t)},${Math.round(40 + 60 * t)})`
   } else {
-    // green to teal/blue
     const t = (s - 66) / 34
-    const r = Math.round(70 - 30 * t)
-    const g = Math.round(230 - 40 * t)
-    const b = Math.round(100 + 80 * t)
-    return `rgb(${r},${g},${b})`
+    return `rgb(${Math.round(70 - 30 * t)},${Math.round(230 - 40 * t)},${Math.round(100 + 80 * t)})`
   }
 }
 
@@ -48,35 +66,130 @@ export default function MapboxMap({
   selectedAddress,
   choroplethScores,
   choroplethLabel,
+  onArrondissementClick,
+  mapLayerMode,
 }: MapboxMapProps) {
   const mapRef = useRef<MapRef>(null)
-  const [hoverInfo, setHoverInfo] = useState<{ x: number; y: number; name: string; score: number | null } | null>(null)
+  const [hoverInfo, setHoverInfo] = useState<{
+    x: number; y: number; name: string; score: number | null; isArrondissement: boolean
+  } | null>(null)
+  const [data, setData] = useState<Awaited<ReturnType<typeof fetchQuartiersGeoJSON>> | null>(null)
+  const [arrondissementsData, setArrondissementsData] = useState<Awaited<ReturnType<typeof fetchArrondissementsGeoJSON>> | null>(null)
+
+  const selectedName = selectedArrondissement?.trim() || ''
+  const isPolygonDataset = hasPolygonGeometry(data?.features ?? null)
+  const hasArrondissementGeometry = hasPolygonGeometry(arrondissementsData?.features ?? null)
+  const hasChoropleth = Object.keys(choroplethScores).length > 0
+
+  const showArrondissements = mapLayerMode === 'arrondissement'
+  const showQuartiers = mapLayerMode === 'quartier'
+
+  useEffect(() => {
+    Promise.all([fetchQuartiersGeoJSON(), fetchArrondissementsGeoJSON()])
+      .then(([quartiers, arrondissements]) => {
+        setData(quartiers)
+        setArrondissementsData(arrondissements)
+      })
+      .catch(console.error)
+  }, [])
+
+  // Aggregate quartier choropleth scores → arrondissement-level average scores
+  const arrondissementScores = useMemo(() => {
+    if (!data || !hasChoropleth) return {}
+    const sums: Record<string, { sum: number; count: number }> = {}
+    for (const feature of data.features) {
+      const props = feature.properties as unknown as Record<string, unknown> | null
+      const arr = String(props?.c_ar ?? props?.arrondissement ?? '')
+      const insee = String(props?.c_quinsee ?? props?.code_insee_quartier ?? '')
+      const score = choroplethScores[insee]
+      if (score !== undefined && arr) {
+        if (!sums[arr]) sums[arr] = { sum: 0, count: 0 }
+        sums[arr].sum += score
+        sums[arr].count++
+      }
+    }
+    const result: Record<string, number> = {}
+    for (const [arr, { sum, count }] of Object.entries(sums)) {
+      result[arr] = sum / count
+    }
+    return result
+  }, [data, choroplethScores, hasChoropleth])
+
+  const quartierFillExpression = useMemo(() => {
+    if (!hasChoropleth) {
+      return ['literal', '#334155'] as unknown as maplibregl.ExpressionSpecification
+    }
+    const expr: (string | number | string[])[] = ['match', ['to-string', ['get', 'c_quinsee']]]
+    for (const [insee, score] of Object.entries(choroplethScores)) {
+      expr.push(String(insee))
+      expr.push(scoreToColor(score))
+    }
+    expr.push('#334155')
+    return expr as unknown as maplibregl.ExpressionSpecification
+  }, [choroplethScores, hasChoropleth])
+
+  // Choropleth fill expression — arrondissement level (avg of quartier scores)
+  const arrondissementFillExpression = useMemo(() => {
+    if (Object.keys(arrondissementScores).length === 0) {
+      return ['literal', '#1e293b'] as unknown as maplibregl.ExpressionSpecification
+    }
+    // Use integer keys to match the integer arrondissement values in the GeoJSON
+    const expr: (string | number | string[])[] = ['match', ['get', 'arrondissement']]
+    for (const [arr, score] of Object.entries(arrondissementScores)) {
+      expr.push(parseInt(arr, 10))
+      expr.push(scoreToColor(score))
+    }
+    expr.push('#334155')
+    return expr as unknown as maplibregl.ExpressionSpecification
+  }, [arrondissementScores])
 
   const onHover = useCallback((event: MapLayerMouseEvent) => {
-    const {
-      features,
-      point: { x, y }
-    } = event
+    const { features, point: { x, y } } = event
     const hoveredFeature = features && features[0]
-    if (hoveredFeature && hoveredFeature.properties?.l_qu) {
-      const insee = hoveredFeature.properties.c_quinsee as string
-      const score = choroplethScores[insee] ?? null
-      setHoverInfo({ x, y, name: hoveredFeature.properties.l_qu as string, score })
+    if (!hoveredFeature) { setHoverInfo(null); return }
+
+    const layerId = (hoveredFeature as unknown as { layer?: { id?: string } }).layer?.id ?? ''
+
+    if (layerId === 'arrondissements-fill') {
+      const props = hoveredFeature.properties as Record<string, unknown> | null
+      const arrStr = String(props?.arrondissement ?? '')
+      const arrNum = parseInt(arrStr, 10)
+      const name = !isNaN(arrNum)
+        ? `${arrNum}${arrNum === 1 ? 'er' : 'e'} arrondissement`
+        : arrStr
+      const score = arrondissementScores[String(arrNum)] ?? arrondissementScores[arrStr] ?? null
+      setHoverInfo({ x, y, name, score, isArrondissement: true })
     } else {
-      setHoverInfo(null)
+      const name = getQuartierName(hoveredFeature as unknown as QuartierFeature)
+      if (name) {
+        const insee = getQuartierCodeInsee(hoveredFeature as unknown as QuartierFeature)
+        const score = insee ? choroplethScores[insee] ?? null : null
+        setHoverInfo({ x, y, name, score, isArrondissement: false })
+      } else {
+        setHoverInfo(null)
+      }
     }
-  }, [choroplethScores])
+  }, [choroplethScores, arrondissementScores])
 
   const onClick = useCallback((event: MapLayerMouseEvent) => {
     const feature = event.features && event.features[0]
-    if (feature && feature.properties?.l_qu) {
-      setSelectedArrondissement(feature.properties.l_qu as string)
-    } else {
-      setSelectedArrondissement(null)
-    }
-  }, [setSelectedArrondissement])
+    if (!feature) { setSelectedArrondissement(null); return }
 
-  // Fly to selected address
+    const layerId = (feature as unknown as { layer?: { id?: string } }).layer?.id ?? ''
+
+    if (layerId === 'arrondissements-fill') {
+      const props = feature.properties as Record<string, unknown> | null
+      const arrNum = parseInt(String(props?.arrondissement ?? ''), 10)
+      if (!isNaN(arrNum) && onArrondissementClick) {
+        onArrondissementClick(arrNum)
+      }
+    } else {
+      const name = getQuartierName(feature as unknown as QuartierFeature)
+      if (name) setSelectedArrondissement(name)
+      else setSelectedArrondissement(null)
+    }
+  }, [setSelectedArrondissement, onArrondissementClick])
+
   useEffect(() => {
     if (selectedAddress && selectedAddress.lat && selectedAddress.lon && mapRef.current) {
       mapRef.current.flyTo({
@@ -90,46 +203,22 @@ export default function MapboxMap({
     }
   }, [selectedAddress])
 
-  // Build choropleth fill-color expression
-  const hasChoropleth = Object.keys(choroplethScores).length > 0
-
-  const fillColorExpression = useMemo(() => {
-    if (!hasChoropleth) {
-      // Fallback: color by arrondissement
-      return [
-        'match', ['get', 'c_ar'],
-        1, '#fecaca', 2, '#fed7aa', 3, '#fef08a', 4, '#d9f99d',
-        5, '#bbf7d0', 6, '#99f6e4', 7, '#a5f3fc', 8, '#bae6fd',
-        9, '#bfdbfe', 10, '#c7d2fe', 11, '#ddd6fe', 12, '#e9d5ff',
-        13, '#f5d0fe', 14, '#fbcfe8', 15, '#fecdd3', 16, '#ffedd5',
-        17, '#ccfbf1', 18, '#e0e7ff', 19, '#fae8ff', 20, '#dcfce7',
-        '#e2e8f0'
-      ] as unknown as maplibregl.ExpressionSpecification
-    }
-
-    // Build a match expression: ['match', ['get', 'c_quinsee'], 'code1', 'color1', ..., defaultColor]
-    const expr: (string | number | string[])[] = ['match', ['get', 'c_quinsee']]
-    for (const [insee, score] of Object.entries(choroplethScores)) {
-      expr.push(insee)
-      expr.push(scoreToColor(score))
-    }
-    expr.push('#334155') // default: dark gray for missing data
-    return expr as unknown as maplibregl.ExpressionSpecification
-  }, [choroplethScores, hasChoropleth])
-
-  const data = useMemo(() => parisData, [])
-
-  // Paris bounds
   const parisBounds = [
     [2.225, 48.815],
     [2.4698, 48.9015]
   ] as [[number, number], [number, number]]
 
+  const interactiveLayerIds = [
+    ...(showArrondissements ? ['arrondissements-fill'] : []),
+    ...(showQuartiers && isPolygonDataset ? ['paris-fill'] : []),
+    ...(showQuartiers && !isPolygonDataset ? ['paris-points'] : []),
+  ]
+
   return (
     <div className="w-full h-full bg-slate-950">
       <Map
         ref={mapRef}
-        mapLib={maplibregl as unknown as typeof import('maplibre-gl')}
+        mapLib={maplibregl as any}
         initialViewState={{
           longitude: 2.3488,
           latitude: 48.8534,
@@ -140,8 +229,8 @@ export default function MapboxMap({
         maxBounds={parisBounds}
         minZoom={11}
         maxZoom={20}
-        mapStyle="https://tiles.openfreemap.org/styles/dark"
-        interactiveLayerIds={['paris-fill']}
+        mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+        interactiveLayerIds={interactiveLayerIds}
         onMouseMove={onHover}
         onClick={onClick}
         cursor={hoverInfo ? 'pointer' : 'grab'}
@@ -160,48 +249,138 @@ export default function MapboxMap({
           }}
         />
 
-        <Source id="paris" type="geojson" data={data}>
-          <Layer
-            id="paris-fill"
-            type="fill"
-            paint={{
-              'fill-color': fillColorExpression,
-              'fill-opacity': [
-                'case',
-                ['boolean', ['feature-state', 'hover'], false],
-                0.8,
-                hasChoropleth ? 0.65 : 0.4
-              ]
-            }}
-          />
-          <Layer
-            id="paris-selected"
-            type="fill"
-            filter={['==', ['get', 'l_qu'], selectedArrondissement || '']}
-            paint={{
-              'fill-color': '#3b82f6',
-              'fill-opacity': 0.5
-            }}
-          />
-          <Layer
-            id="paris-borders"
-            type="line"
-            paint={{
-              'line-color': hasChoropleth ? '#0f172a' : '#334155',
-              'line-width': hasChoropleth ? 1 : 1.5,
-              'line-opacity': 0.8
-            }}
-          />
-          <Layer
-            id="paris-borders-selected"
-            type="line"
-            filter={['==', ['get', 'l_qu'], selectedArrondissement || '']}
-            paint={{
-              'line-color': '#60a5fa',
-              'line-width': 2.5
-            }}
-          />
-        </Source>
+        {/* ── Arrondissement layer ────────────────────────────────────────── */}
+        {arrondissementsData && hasArrondissementGeometry && (
+          <Source id="arrondissements" type="geojson" data={arrondissementsData}>
+            <Layer
+              id="arrondissements-fill"
+              type="fill"
+              layout={{ visibility: showArrondissements ? 'visible' : 'none' }}
+              paint={{
+                'fill-color': arrondissementFillExpression,
+                'fill-opacity': hasChoropleth ? 0.65 : 0.15,
+              }}
+            />
+            <Layer
+              id="arrondissements-borders"
+              type="line"
+              paint={{
+                'line-color': '#94a3b8',
+                'line-width': 2,
+                'line-opacity': 0.9,
+              }}
+            />
+            <Layer
+              id="arrondissements-labels"
+              type="symbol"
+              layout={{
+                'text-field': ['coalesce',
+                  ['get', 'nom_arrondissement'],
+                  ['get', 'nom_officiel_arrondissement'],
+                  ['to-string', ['get', 'arrondissement']],
+                ],
+                'text-size': 11,
+                'text-anchor': 'center',
+              }}
+              paint={{
+                'text-color': '#cbd5e1',
+                'text-halo-color': '#020617',
+                'text-halo-width': 1.2,
+              }}
+            />
+          </Source>
+        )}
+
+        {/* ── Quartier layer ──────────────────────────────────────────────── */}
+        {data && isPolygonDataset && (
+          <Source id="paris" type="geojson" data={data}>
+            <Layer
+              id="paris-fill"
+              type="fill"
+              layout={{ visibility: showQuartiers ? 'visible' : 'none' }}
+              paint={{
+                'fill-color': quartierFillExpression,
+                'fill-opacity': hasChoropleth ? 0.65 : 0.4,
+              }}
+            />
+            <Layer
+              id="paris-selected"
+              type="fill"
+              layout={{ visibility: showQuartiers ? 'visible' : 'none' }}
+              filter={buildSelectedFilter(selectedName) as any}
+              paint={{
+                'fill-color': '#3b82f6',
+                'fill-opacity': 0.5,
+              }}
+            />
+            <Layer
+              id="paris-borders"
+              type="line"
+              layout={{ visibility: showQuartiers ? 'visible' : 'none' }}
+              paint={{
+                'line-color': hasChoropleth ? '#0f172a' : '#334155',
+                'line-width': hasChoropleth ? 1 : 1.5,
+                'line-opacity': 0.8,
+              }}
+            />
+            <Layer
+              id="paris-borders-selected"
+              type="line"
+              layout={{ visibility: showQuartiers ? 'visible' : 'none' }}
+              filter={buildSelectedFilter(selectedName) as any}
+              paint={{
+                'line-color': '#60a5fa',
+                'line-width': 2.5,
+              }}
+            />
+          </Source>
+        )}
+
+        {data && !isPolygonDataset && (
+          <Source id="paris-points-source" type="geojson" data={data}>
+            <Layer
+              id="paris-points"
+              type="circle"
+              layout={{ visibility: showQuartiers ? 'visible' : 'none' }}
+              paint={{
+                'circle-radius': 7,
+                'circle-color': quartierFillExpression,
+                'circle-stroke-color': '#0f172a',
+                'circle-stroke-width': 1.5,
+                'circle-opacity': 0.9,
+              }}
+            />
+            <Layer
+              id="paris-points-selected"
+              type="circle"
+              layout={{ visibility: showQuartiers ? 'visible' : 'none' }}
+              filter={buildSelectedFilter(selectedName) as any}
+              paint={{
+                'circle-radius': 11,
+                'circle-color': '#3b82f6',
+                'circle-stroke-color': '#bfdbfe',
+                'circle-stroke-width': 2,
+                'circle-opacity': 0.95,
+              }}
+            />
+            <Layer
+              id="paris-points-labels"
+              type="symbol"
+              layout={{
+                visibility: showQuartiers ? 'visible' : 'none',
+                'text-field': ['get', 'nom_quartier'],
+                'text-size': 11,
+                'text-offset': [0, 1.25],
+                'text-anchor': 'top',
+              }}
+              paint={{
+                'text-color': '#e2e8f0',
+                'text-halo-color': '#0f172a',
+                'text-halo-width': 1.25,
+              }}
+            />
+          </Source>
+        )}
 
         {/* Address Marker */}
         {selectedAddress && selectedAddress.lat && selectedAddress.lon && (
@@ -232,11 +411,10 @@ export default function MapboxMap({
             <div className="text-white font-bold">{hoverInfo.name}</div>
             {hoverInfo.score !== null && (
               <div className="text-xs mt-0.5 flex items-center gap-2">
-                <span className="text-slate-400">{choroplethLabel}:</span>
-                <span
-                  className="font-black"
-                  style={{ color: scoreToColor(hoverInfo.score) }}
-                >
+                <span className="text-slate-400">
+                  {hoverInfo.isArrondissement ? `${choroplethLabel} (moy.)` : choroplethLabel}:
+                </span>
+                <span className="font-black" style={{ color: scoreToColor(hoverInfo.score) }}>
                   {Math.round(hoverInfo.score)}/100
                 </span>
               </div>

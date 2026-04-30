@@ -1,9 +1,7 @@
 import { X, Search, MapPin, Building2, Trophy, Filter, Navigation, Shield, Banknote, Home, Building, Scale, Leaf } from 'lucide-react'
-import { useMemo, useState, useEffect } from 'react'
-import { KPI_CATEGORIES, KPICategory, Address, fetchQuartierAddresses } from '../../services/apiService'
-import { RUES_PAR_ARRONDISSEMENT } from '../../data/mock-addresses'
+import { useState, useEffect } from 'react'
+import { KPI_CATEGORIES, KPICategory, Address, Quartier, fetchQuartierAddresses, fetchQuartiers, searchAddress } from '../../services/apiService'
 import type { SelectedQuartier } from '../../App'
-import parisData from '../../data/paris-quartiers.json'
 
 interface SidebarProps {
   selectedQuartier: SelectedQuartier | null
@@ -38,7 +36,7 @@ export default function Sidebar({
   onQuartierSelect,
   onArrondissementSelect,
   onCategoryToggle,
-  onViewModeChange,
+  onViewModeChange: _onViewModeChange,
   onAddressSelect,
   onClose
 }: SidebarProps) {
@@ -46,6 +44,13 @@ export default function Sidebar({
   const [searchTerm, setSearchTerm] = useState('')
   const [addresses, setAddresses] = useState<Address[]>([])
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false)
+  const [quartiers, setQuartiers] = useState<Quartier[]>([])
+
+  useEffect(() => {
+    fetchQuartiers()
+      .then(setQuartiers)
+      .catch(console.error)
+  }, [])
 
   // ─── Fetch Addresses when quartier changes ────────────────────────
   useEffect(() => {
@@ -60,61 +65,34 @@ export default function Sidebar({
     }
   }, [selectedQuartier])
 
-  // ─── Quartiers List ────────────────────────────────────────────────
-  const allQuartiers = useMemo(() => {
-    const geoData = parisData as unknown as { features: { properties: { l_qu: string } }[] }
-    const list = geoData.features.map(f => f.properties.l_qu)
-    return list.sort((a, b) => a.localeCompare(b, 'fr'))
-  }, [])
-
   // ─── Search Results (Quartiers + Streets) ──────────────────────────
   const [searchResults, setSearchResults] = useState<{ type: 'Quartier' | 'Rue'; name: string; full?: string; arr?: number }[]>([])
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (!searchTerm.trim()) {
-        const geoData = parisData as unknown as { features: { properties: { l_qu: string; c_ar: number } }[] }
-        setSearchResults(geoData.features.map(f => ({
-          type: 'Quartier',
-          name: f.properties.l_qu,
-          arr: f.properties.c_ar
+        setSearchResults(quartiers.map(q => ({
+          type: 'Quartier' as const,
+          name: q.nom_quartier,
+          arr: q.arrondissement
         })).sort((a, b) => a.name.localeCompare(b.name, 'fr')))
         return
       }
 
-      const q = searchTerm.toLowerCase()
-      const quartierMatches = allQuartiers
-        .filter(name => name.toLowerCase().includes(q))
-        .map(name => {
-          const feature = (parisData as any).features.find((f: any) => f.properties.l_qu === name)
-          return { 
-            type: 'Quartier' as const, 
-            name,
-            arr: feature?.properties.c_ar
-          }
+      searchAddress(searchTerm)
+        .then(results => {
+          setSearchResults(results.map(result => ({
+            type: (result.type === 'Rue' ? 'Rue' : 'Quartier') as 'Quartier' | 'Rue',
+            name: result.rue,
+            full: result.full,
+            arr: result.type === 'Rue' ? undefined : quartiers.find(q => q.nom_quartier === result.rue)?.arrondissement
+          })))
         })
-
-      // Search in streets
-      const streetResults: { type: 'Rue'; name: string; full: string; arr: number }[] = []
-      for (const [arr, rues] of Object.entries(RUES_PAR_ARRONDISSEMENT)) {
-        const arrNum = parseInt(arr)
-        rues.forEach(rue => {
-          if (rue.toLowerCase().includes(q)) {
-            streetResults.push({
-              type: 'Rue',
-              name: rue,
-              full: `${rue}, 750${String(arrNum).padStart(2, '0')} Paris`,
-              arr: arrNum
-            })
-          }
-        })
-      }
-
-      setSearchResults([...quartierMatches, ...streetResults.slice(0, 20)])
+        .catch(console.error)
     }, 300)
 
     return () => clearTimeout(timer)
-  }, [searchTerm, allQuartiers])
+  }, [searchTerm, quartiers])
 
   // ─── Arrondissements ──────────────────────────────────────────────
   const arrondissements = Array.from({ length: 20 }, (_, i) => i + 1)
@@ -145,7 +123,7 @@ export default function Sidebar({
       {!selectedQuartier && (
         <div className="flex px-4 pt-4 gap-2">
           {([
-            { id: 'list' as const, icon: Building2, label: 'Quartiers' },
+            { id: 'list' as const, icon: Building2, label: 'Explorer' },
             { id: 'arr' as const, icon: Trophy, label: 'Classement' },
           ]).map(tab => (
             <button
@@ -214,7 +192,7 @@ export default function Sidebar({
                 </div>
                 <div className="bg-slate-900/50 p-2 rounded-lg border border-white/5">
                   <div className="text-[9px] font-bold text-slate-500 uppercase">Surface</div>
-                  <div className="text-sm font-bold text-slate-200">{selectedQuartier.surface > 0 ? Math.round(selectedQuartier.surface / 10000) : '--'} ha</div>
+                  <div className="text-sm font-bold text-slate-200">{(selectedQuartier.surface ?? 0) > 0 ? Math.round((selectedQuartier.surface ?? 0) / 10000) : '--'} ha</div>
                 </div>
               </div>
             </div>

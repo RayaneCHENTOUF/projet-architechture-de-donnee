@@ -118,7 +118,6 @@ function App() {
             })
             setSelectedArrondissement(feature.arrondissement)
             setViewMode('quartier')
-            setMapLayerMode('quartier')
             setSelectedAddress(null)
           })
         } else {
@@ -136,7 +135,6 @@ function App() {
             })
             setSelectedArrondissement(q.arrondissement)
             setViewMode('quartier')
-            setMapLayerMode('quartier')
           }).catch(console.error)
         }
       } else {
@@ -155,7 +153,6 @@ function App() {
           })
           setSelectedArrondissement(feature.arrondissement)
           setViewMode('quartier')
-          setMapLayerMode('quartier')
           setSelectedAddress(null)
         })
       }
@@ -165,7 +162,6 @@ function App() {
   const handleArrondissementSelect = (arrNum: number) => {
     setSelectedArrondissement(arrNum)
     setViewMode('arrondissement')
-    setMapLayerMode('arrondissement')
     setSelectedQuartier(null)
     setSelectedAddress(null)
   }
@@ -192,7 +188,6 @@ function App() {
         })
         setSelectedArrondissement(q.arrondissement)
         setViewMode('quartier')
-        setMapLayerMode('quartier')
       }).catch(console.error)
     }
   }

@@ -62,6 +62,37 @@ export default function ArrondissementRanking({
         </p>
       </div>
 
+      {/* Arrondissement KPI Averages */}
+      {!isLoading && rankingData && rankingData.ranking.length > 0 && (
+        <div className="px-6 py-4 border-b border-white/5 bg-slate-800/20">
+          <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">
+            Moyennes de l'Arrondissement
+          </h3>
+          <div className="grid grid-cols-3 gap-2">
+            {selectedCategories.map(catKey => {
+               const validScores = rankingData.ranking
+                 .map(q => q.scores[catKey])
+                 .filter(s => s !== null && s !== undefined) as number[];
+               const avg = validScores.length > 0 
+                 ? validScores.reduce((a,b)=>a+b, 0) / validScores.length 
+                 : null;
+               
+               const label = KPI_CATEGORIES.find(c => c.key === catKey)?.label || catKey;
+               
+               return (
+                 <div key={catKey} className="bg-slate-900/50 border border-white/5 p-2 rounded-xl flex flex-col items-center justify-center text-center">
+                    <div className="flex items-center gap-1.5 text-slate-400 mb-1">
+                      {getCategoryMiniIcon(catKey)}
+                    </div>
+                    <span className="text-[12px] font-black text-white">{avg !== null ? Math.round(avg) : '--'}</span>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mt-1 leading-tight">{label}</span>
+                 </div>
+               )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Ranking List */}
       <div className="flex-1 overflow-y-auto px-6 pb-6 custom-scrollbar mt-4">
         {isLoading ? (

@@ -25,6 +25,8 @@ DEFAULT_MAPPING = {
     "commissariats.geojson": "geo_commissariats",
     "cameras.geojson": "geo_cameras",
     "gares.geojson": "geo_gares",
+    "arrondissements.geojson": "geo_arrondissements",
+    
 }
 
 
@@ -43,7 +45,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--geojson-dir",
-        default="data/exports/nosql",
+        default="../../../data/exports/nosql",
         help="Directory that contains GeoJSON files.",
     )
     parser.add_argument(
@@ -115,7 +117,6 @@ def main() -> None:
         )
 
     print(f"Done. Inserted {total} document(s) into database '{args.db}'.")
-
 
 if __name__ == "__main__":
     main()
