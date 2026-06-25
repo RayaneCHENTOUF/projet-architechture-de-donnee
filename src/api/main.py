@@ -34,7 +34,7 @@ MONGODB_DB = os.getenv("MONGODB_DB", "urban_data")
 MYSQL_HOST = os.getenv("MYSQL_HOST", "localhost")
 MYSQL_PORT = int(os.getenv("MYSQL_PORT", "3306"))
 MYSQL_DB = os.getenv("MYSQL_DATABASE", "urban_data")
-MYSQL_USER = os.getenv("MYSQL_USER", "root")
+MYSQL_USER = os.getenv("MYSQL_USER", "root1")
 MYSQL_PASSWORD = os.getenv("MYSQL_PASSWORD", "dbl2025")
 
 
