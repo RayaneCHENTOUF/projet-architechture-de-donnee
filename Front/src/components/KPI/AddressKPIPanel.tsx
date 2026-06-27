@@ -1,5 +1,4 @@
 import { X, MapPin } from 'lucide-react'
-import { X, MapPin } from 'lucide-react'
 import type { Address, QuartierKPIResponse, KPICategory } from '@/services/apiService'
 import KPIDisplay from './KPIDisplay'
 import type { SelectedQuartier } from '@/App'
@@ -48,6 +47,7 @@ export default function AddressKPIPanel({
           kpiData={kpiData}
           selectedCategories={selectedCategories}
           isLoading={false}
+          isError={false}
           onClose={onClose}
         />
       </div>

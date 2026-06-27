@@ -1,4 +1,4 @@
-import { X, Trophy, Medal, ChevronRight, AlertCircle, Info, Shield, Banknote, Home, Building, Scale, Leaf } from 'lucide-react'
+import { X, Trophy, ChevronRight, AlertCircle, Info, Shield, Banknote, Home, Building, Scale, Leaf } from 'lucide-react'
 import { RankingResponse, KPICategory, KPI_CATEGORIES } from '../../services/apiService'
 
 interface ArrondissementRankingProps {

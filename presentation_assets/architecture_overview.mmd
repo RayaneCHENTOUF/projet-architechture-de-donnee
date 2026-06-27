@@ -1,0 +1,18 @@
+flowchart LR
+    A[Sources Open Data] --> B[Bronze CSV]
+    B --> C[Silver CSV]
+    C --> D[Gold KPI CSV]
+    D --> E[MySQL KPI]
+    C --> F[GeoJSON Export]
+    F --> G[MongoDB GeoJSON]
+    E --> H[API FastAPI]
+    G --> H
+    H --> I[Frontend React]
+    style A fill:#f9f,stroke:#333,stroke-width:1px
+    style B fill:#ffeb99,stroke:#333,stroke-width:1px
+    style C fill:#99ccff,stroke:#333,stroke-width:1px
+    style D fill:#a2f5a2,stroke:#333,stroke-width:1px
+    style E fill:#f4c2c2,stroke:#333,stroke-width:1px
+    style G fill:#c2e7f4,stroke:#333,stroke-width:1px
+    style H fill:#d3d3d3,stroke:#333,stroke-width:1px
+    style I fill:#e0b0ff,stroke:#333,stroke-width:1px

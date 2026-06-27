@@ -1,0 +1,52 @@
+flowchart TD
+    subgraph Bronze
+        A[valeurs_foncieres.csv]
+        B[loyers.csv]
+        C[hlm.csv]
+        D[dataset_delinquances.csv]
+        E[quartier_paris.csv]
+        F[iris.csv]
+        G[dans-ma-rue.csv]
+        H[emplacement-des-gares-idf.csv]
+        I[parissetransforme.csv]
+    end
+
+    subgraph Silver
+        J[clean_immobilier.py]
+        K[clean_geographie.py]
+        L[clean_surete.py]
+        M[clean_confort.py]
+    end
+
+    subgraph Gold
+        N[gold_kpi_prix_m2_quartier_annuel.py]
+        O[gold_kpi_comparaison_achat_location_arrondissement.py]
+        P[gold_kpi_comparaison_achat_location_quartier.py]
+        Q[gold_kpi_loyers_quartier.py]
+        R[gold_kpi_repartition_hlm_arrondissement.py]
+        S[gold_kpi_confort_urbain.py]
+        T[gold_kpi_surete_quartier.py]
+    end
+
+    A --> J
+    B --> J
+    B --> Q
+    C --> R
+    D --> L
+    E --> K
+    F --> K
+    G --> M
+    H --> M
+    I --> M
+    J --> N
+    K --> N
+    K --> O
+    L --> T
+    M --> S
+    N --> Dgold[kpi_prix_m2_quartier_annuel.csv]
+    O --> Dgold2[kpi_comparaison_achat_location_arrondissement.csv]
+    P --> Dgold3[kpi_comparaison_achat_location_quartier_estime.csv]
+    Q --> Dgold4[kpi_loyers_quartier.csv]
+    R --> Dgold5[kpi_repartition_logements_sociaux.csv]
+    S --> Dgold6[gold_kpi_confort_urbain.csv]
+    T --> Dgold7[kpi_score_surete_quartier_estime_depuis_iris.csv]

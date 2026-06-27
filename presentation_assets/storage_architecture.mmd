@@ -1,0 +1,22 @@
+flowchart LR
+    subgraph Relationnel
+        A[MySQL]
+        A --> B[fact_kpi_prix_m2_quartier_annuel]
+        A --> C[fact_kpi_loyers_quartier]
+        A --> D[fact_kpi_comparaison_achat_location]
+        A --> E[fact_kpi_confort_quartier]
+        A --> F[fact_kpi_surete_quartier]
+        A --> G[fact_kpi_repartition_logements_sociaux]
+    end
+    subgraph NoSQL
+        H[MongoDB]
+        H --> I[geo_quartiers.geojson]
+        H --> J[geo_iris.geojson]
+        H --> K[geo_commissariats.geojson]
+        H --> L[geo_cameras.geojson]
+        H --> M[geo_gares.geojson]
+    end
+    N[data/gold CSV] --> A
+    O[data/exports/nosql] --> H
+    P[src/pipeline/export/build_storage_exports.py] --> N
+    P --> O

@@ -1,0 +1,21 @@
+flowchart LR
+    subgraph Backend
+        A[FastAPI]
+        A --> B[MySQL]
+        A --> C[MongoDB]
+        B --> D[/api/kpi/quartier/{codeInsee}]
+        B --> E[/api/ranking/arrondissement/{arrNum}]
+        C --> F[/api/quartiers/geojson]
+        C --> G[/api/quartiers/lookup?lat=&lon=]
+    end
+    subgraph Frontend
+        H[React + Vite]
+        H --> D
+        H --> E
+        H --> F
+        H --> G
+    end
+    style A fill:#d3d3d3,stroke:#333
+    style B fill:#f4c2c2,stroke:#333
+    style C fill:#c2e7f4,stroke:#333
+    style H fill:#e0b0ff,stroke:#333

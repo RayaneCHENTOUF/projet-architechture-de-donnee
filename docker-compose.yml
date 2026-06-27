@@ -1,4 +1,4 @@
-version: '3.8'
+
 
 services:
   mysql:
@@ -20,6 +20,39 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: src/api/Dockerfile
+    container_name: urban_data_backend
+    environment:
+      MONGODB_URI: mongodb://mongodb:27017
+      MONGODB_DB: urban_data
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: urban_data
+      MYSQL_USER: root
+      MYSQL_PASSWORD: dbl2025
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mysql
+      - mongodb
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./Front
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:8000
+    container_name: urban_data_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
     restart: unless-stopped
 
 volumes:
