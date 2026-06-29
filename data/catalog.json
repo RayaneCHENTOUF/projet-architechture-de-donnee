@@ -1,0 +1,158 @@
+{
+  "_meta": {
+    "description": "Data catalog for the Paris Urban Data Lake",
+    "version": "1.0",
+    "sensitivity_levels": {
+      "public": "Open data — freely distributable, no restrictions",
+      "internal": "Aggregated/derived data — for internal use, not redistributed raw",
+      "confidential": "Contains quasi-personal or commercially sensitive data"
+    }
+  },
+  "datasets": [
+    {
+      "id": "quartiers_paris",
+      "layer": "bronze",
+      "file": "bronze/quartier_paris.csv",
+      "sensitivity": "public",
+      "source": "Paris Open Data — data.paris.fr",
+      "description": "Délimitations administratives des 80 quartiers de Paris avec codes INSEE",
+      "domain": "geographie",
+      "format": "CSV",
+      "update_frequency": "static"
+    },
+    {
+      "id": "iris",
+      "layer": "bronze",
+      "file": "bronze/iris.csv",
+      "sensitivity": "public",
+      "source": "INSEE",
+      "description": "Découpage IRIS (Ilots Regroupés pour l'Information Statistique) de Paris",
+      "domain": "geographie",
+      "format": "CSV",
+      "update_frequency": "static"
+    },
+    {
+      "id": "arrondissements",
+      "layer": "bronze",
+      "file": "bronze/arrondissements.csv",
+      "sensitivity": "public",
+      "source": "Paris Open Data",
+      "description": "Délimitations des 20 arrondissements de Paris",
+      "domain": "geographie",
+      "format": "CSV",
+      "update_frequency": "static"
+    },
+    {
+      "id": "delinquances",
+      "layer": "bronze",
+      "file": "bronze/dataset_delinquances.csv",
+      "sensitivity": "internal",
+      "source": "Préfecture de Police de Paris / data.gouv.fr",
+      "description": "Statistiques de délinquance par IRIS et par année à Paris",
+      "domain": "surete",
+      "format": "CSV",
+      "update_frequency": "annual",
+      "notes": "Données agrégées par zone, pas de données individuelles"
+    },
+    {
+      "id": "cameras",
+      "layer": "bronze",
+      "file": "bronze/points.csv",
+      "sensitivity": "internal",
+      "source": "Paris Open Data",
+      "description": "Localisation des caméras de surveillance sur Paris",
+      "domain": "surete",
+      "format": "CSV",
+      "update_frequency": "irregular"
+    },
+    {
+      "id": "commissariats",
+      "layer": "bronze",
+      "file": "bronze/cartographie-des-emplacements-des-commissariats-a-paris-et-petite-couronne.csv",
+      "sensitivity": "public",
+      "source": "Préfecture de Police / data.gouv.fr",
+      "description": "Localisation des commissariats de Paris et petite couronne",
+      "domain": "surete",
+      "format": "CSV",
+      "update_frequency": "static"
+    },
+    {
+      "id": "dans_ma_rue",
+      "layer": "bronze",
+      "file": "bronze/dans-ma-rue.csv",
+      "sensitivity": "public",
+      "source": "Paris Open Data — Dans Ma Rue",
+      "description": "Signalements d'anomalies urbaines (voirie, éclairage, propreté) par les citoyens",
+      "domain": "confort",
+      "format": "CSV",
+      "update_frequency": "daily"
+    },
+    {
+      "id": "paris_se_transforme",
+      "layer": "bronze",
+      "file": "bronze/parissetransforme.csv",
+      "sensitivity": "public",
+      "source": "Paris Open Data — Paris se Transforme",
+      "description": "Chantiers et travaux urbains en cours ou planifiés à Paris",
+      "domain": "confort",
+      "format": "CSV",
+      "update_frequency": "monthly"
+    },
+    {
+      "id": "gares",
+      "layer": "bronze",
+      "file": "bronze/emplacement-des-gares-idf.csv",
+      "sensitivity": "public",
+      "source": "Île-de-France Mobilités / data.iledefrance-mobilites.fr",
+      "description": "Localisation des gares et stations de transports en commun en Île-de-France",
+      "domain": "confort",
+      "format": "CSV",
+      "update_frequency": "static"
+    },
+    {
+      "id": "valeurs_foncieres",
+      "layer": "bronze",
+      "file": "bronze/valeurs_foncieres.csv",
+      "sensitivity": "internal",
+      "source": "DGFiP — data.gouv.fr (DVF)",
+      "description": "Transactions immobilières à Paris (Demandes de Valeurs Foncières)",
+      "domain": "immobilier",
+      "format": "CSV",
+      "update_frequency": "semi-annual",
+      "notes": "Données officielles de l'État, anonymisées mais granulaires (adresse par adresse)"
+    },
+    {
+      "id": "loyers",
+      "layer": "bronze",
+      "file": "bronze/loyers.csv",
+      "sensitivity": "public",
+      "source": "DRIHL / data.gouv.fr",
+      "description": "Loyers de référence par zone géographique (encadrement des loyers Paris)",
+      "domain": "immobilier",
+      "format": "CSV",
+      "update_frequency": "annual"
+    },
+    {
+      "id": "hlm",
+      "layer": "bronze",
+      "file": "bronze/hlm.csv",
+      "sensitivity": "public",
+      "source": "Ville de Paris / data.paris.fr",
+      "description": "Logements sociaux financés à Paris par programme et bailleur",
+      "domain": "immobilier",
+      "format": "CSV",
+      "update_frequency": "annual"
+    },
+    {
+      "id": "hotels",
+      "layer": "bronze",
+      "file": "bronze/les_hotels_classes_en_ile-de-france.csv",
+      "sensitivity": "public",
+      "source": "Atout France / data.gouv.fr",
+      "description": "Hôtels classés en Île-de-France avec catégorie et localisation",
+      "domain": "tourisme",
+      "format": "CSV",
+      "update_frequency": "annual"
+    }
+  ]
+}

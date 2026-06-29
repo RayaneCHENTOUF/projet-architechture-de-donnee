@@ -223,6 +223,7 @@ const EMPTY_ARRONDISSEMENTS: ArrondissementsFeatureCollection = {
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL?.replace(/\/$/, '') ?? ''
+const API_KEY = import.meta.env.VITE_API_KEY ?? ''
 
 function buildApiUrl(path: string): string {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`
@@ -231,7 +232,8 @@ function buildApiUrl(path: string): string {
 
 async function apiFetchJson<T>(path: string): Promise<T | null> {
   try {
-    const response = await fetch(buildApiUrl(path))
+    const headers: HeadersInit = API_KEY ? { 'X-API-Key': API_KEY } : {}
+    const response = await fetch(buildApiUrl(path), { headers })
     if (!response.ok) return null
     return (await response.json()) as T
   } catch {

@@ -15,8 +15,9 @@ from contextlib import asynccontextmanager
 from typing import Any, Optional
 import os
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import mysql.connector
 from pymongo import MongoClient
 from pydantic import BaseModel
@@ -28,6 +29,8 @@ load_dotenv()
 
 # ─── Configuration ────────────────────────────────────────────────────────────
 
+API_KEY = os.getenv("API_KEY", "")
+FRONT_URL = os.getenv("FRONT_URL", "http://localhost:5173/").rstrip("/")
 MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
 MONGODB_DB = os.getenv("MONGODB_DB", "urban_data")
 
@@ -94,11 +97,23 @@ app = FastAPI(
 # CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[FRONT_URL],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*", "X-API-Key"],
 )
+
+
+@app.middleware("http")
+async def api_key_middleware(request: Request, call_next):
+    # Skip preflight requests — CORS middleware handles them
+    if request.url.path.startswith("/api/") and request.method != "OPTIONS":
+        if not API_KEY:
+            return JSONResponse(status_code=500, content={"detail": "API key not configured on server"})
+        key = request.headers.get("X-API-Key", "")
+        if key != API_KEY:
+            return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key"})
+    return await call_next(request)
 
 
 # ─── Pydantic Models ──────────────────────────────────────────────────────────
