@@ -4,8 +4,8 @@
 **/*.py[cod]
 **/node_modules/
 **/dist/
-.env
-.env.*
+**/.env
+**/.env.*
 data/
 notebooks/
 presentation_assets/

@@ -197,60 +197,7 @@ export default function Sidebar({
               </div>
             </div>
 
-            {/* Addresses List */}
-            <div className="space-y-2">
-              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-1">
-                Adresses ({addresses.length})
-              </h3>
-              
-              <div className="space-y-1">
-                {isLoadingAddresses ? (
-                  <div className="space-y-2">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="h-12 bg-white/5 rounded-lg animate-pulse"></div>
-                    ))}
-                  </div>
-                ) : addresses.length > 0 ? (
-                  addresses.map((addr, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => onAddressSelect(addr)}
-                      className="w-full text-left p-3 rounded-xl bg-white/5 border border-white/5 hover:border-blue-500/30 hover:bg-blue-500/5 transition-all group flex items-center gap-3"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-400 group-hover:bg-blue-900/30 group-hover:text-blue-400 transition-all border border-white/5">
-                        {addr.numero || '•'}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold text-slate-200 truncate group-hover:text-white">{addr.rue}</div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <div className="text-[10px] text-slate-500 font-medium">{addr.code_postal} Paris</div>
-                          {addr.type && (
-                            <span className="text-[8px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 font-bold uppercase border border-white/5">
-                              {addr.type}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-1">
-                         {addr.statut && (
-                           <span className={`text-[8px] font-black uppercase tracking-tighter ${
-                             addr.statut === 'Vente' ? 'text-blue-400' : 
-                             addr.statut === 'Location' ? 'text-emerald-400' : 'text-amber-400'
-                           }`}>
-                             {addr.statut}
-                           </span>
-                         )}
-                         <Navigation className="w-3.5 h-3.5 text-slate-600 group-hover:text-blue-400 transition-all" />
-                      </div>
-                    </button>
-                  ))
-                ) : (
-                  <div className="text-center py-8 border border-dashed border-white/5 rounded-xl">
-                    <p className="text-slate-500 text-xs font-medium">Aucune donnée adresse</p>
-                  </div>
-                )}
-              </div>
-            </div>
+
           </div>
         ) : (
           <div className="space-y-4">

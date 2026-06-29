@@ -104,15 +104,24 @@ app.add_middleware(
 )
 
 
+def _error_response(status: int, detail: str, origin: str) -> JSONResponse:
+    """JSONResponse with CORS header so the browser sees the real error code."""
+    res = JSONResponse(status_code=status, content={"detail": detail})
+    res.headers["Access-Control-Allow-Origin"] = origin
+    res.headers["Access-Control-Allow-Credentials"] = "true"
+    return res
+
+
 @app.middleware("http")
 async def api_key_middleware(request: Request, call_next):
     # Skip preflight requests — CORS middleware handles them
     if request.url.path.startswith("/api/") and request.method != "OPTIONS":
+        origin = request.headers.get("origin", FRONT_URL)
         if not API_KEY:
-            return JSONResponse(status_code=500, content={"detail": "API key not configured on server"})
+            return _error_response(500, "API key not configured on server", origin)
         key = request.headers.get("X-API-Key", "")
         if key != API_KEY:
-            return JSONResponse(status_code=401, content={"detail": "Invalid or missing API key"})
+            return _error_response(401, "Invalid or missing API key", origin)
     return await call_next(request)
 
 
